@@ -1,0 +1,25 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1586901882058.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3924098746",
+    "id" : "EDF62C9",
+    "lastKnownWriteTime" : 1569510234,
+    "last_content_update" : 1569510234,
+    "path" : "D:/LP2017/R scripts/Normalise 2.R",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "337,14",
+        "scrollLine" : "0"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

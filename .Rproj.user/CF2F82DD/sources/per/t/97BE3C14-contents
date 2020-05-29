@@ -1,0 +1,95 @@
+Species<-read.csv("Fish results sorted.csv")
+head(Species)
+library(reshape2)
+melt.species<-melt(Species)
+head(melt.species)
+species_sh<-Species[,c(1,6,9)]
+melt.species.sh<-melt(species_sh)
+species_heat<-Species[,c(1,6,9)]
+head(species_heat)
+row.names(species_heat)<-species_heat$FISH.SPECIES
+library(dplyr)
+library(tidyverse)
+library(gplots)
+library(ggplot2)
+??derep
+ggplot(melt.species.sh, aes(FISH.SPECIES, SEX)) +
+  geom_tile(aes(fill = value), color = "white") +
+  scale_fill_gradient(low = "steelblue", high = "red") +
+  ylab("Sex") +
+  xlab("Fish species") +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        plot.title = element_text(size=16),
+        axis.title=element_text(size=14,face="bold"),
+        axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(fill = "Number of Parasites")
+########################
+head(species_sh)
+
+species_sh.heat<-species_sh
+row.names(species_sh.heat)<-species_sh.heat$FISH.SPECIES
+
+
+Taxa_urban.heat[1]<-NULL
+
+#Plot heatmap
+#convert to matrix
+Taxa_urban.heat<-as.matrix(Taxa_urban.heat)
+is.numeric(Taxa_urban.heat)
+library(gplots)
+heatmap.2(Taxa_urban.heat, scale = "column", dendogram="column", Rowv=F, col = bluered(100), 
+          trace = "none", density.info = "none", main = "Taxonomic composition of BS and AM")
+
+###############################################
+install.packages("ggcorrplot")
+library(ggcorrplot)
+library(corrplot)
+library(RColorBrewer)
+install.packages("ggpubr")
+library(ggpubr)
+library(tidyverse)
+install.packages("Hmisc")
+library(Hmisc)
+library(dplyr)
+###########################
+#Correlations 
+Corr_mat<-read.csv("Eddie correlation_new format.csv")
+Corr_mat<-Corr_mat[c(1:4),]
+row.names(Corr_mat)<-Corr_mat$Site
+Corr_mat[1]<-NULL
+ggscatter(Corr_mat, x ="PH", y = "Copepod",
+          add = "reg.line", conf.int = TRUE, xlab = "PH", ylab = "Copepod abundance",
+          cor.coef = TRUE, cor.method = "pearson",
+          title = "Relationship between PH and copepod abundance across sites")+
+  geom_smooth()
+  
+ggscatter(Corr_mat, x = "PH", y = "Copepod",
+          add = "loess", conf.int = TRUE)
+
+
+?geom_smooth
+
+ggscatter(Corr_mat, x = "PH", y = "Copepod",
+          color = "black", shape = 21, size = 3, # Points color, shape and size
+          add = "reg.line",  # Add regressin line
+          add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+          conf.int = TRUE, # Add confidence interval
+          cor.coef = TRUE, # Add correlation coefficient. see ?stat_cor
+          cor.coeff.args = list(method = "pearson", label.x = 3, label.sep = "\n")
+)
+
+
+data("mtcars")
+df <- mtcars
+df$cyl <- as.factor(df$cyl)
+head(df[, c("wt", "mpg", "cyl")], 3)
+
+ggscatter(df, x = "wt", y = "mpg",
+          color = "black", shape = 21, size = 3, # Points color, shape and size
+          add = "reg.line",  # Add regressin line
+          add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+          conf.int = TRUE, # Add confidence interval
+          cor.coef = TRUE, # Add correlation coefficient. see ?stat_cor
+          cor.coeff.args = list(method = "pearson", label.x = 3, label.sep = "\n")
+)

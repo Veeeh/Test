@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1579987563723.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "234022810",
+    "id" : "97BE3C14",
+    "lastKnownWriteTime" : 1586905432,
+    "last_content_update" : 1586905430946,
+    "path" : "D:/LP2017/R scripts/Eddie correlations.R",
+    "project_path" : null,
+    "properties" : {
+        "cursorPosition" : "80,0",
+        "scrollLine" : "66",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

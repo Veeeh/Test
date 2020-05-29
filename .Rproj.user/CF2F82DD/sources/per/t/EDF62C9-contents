@@ -1,0 +1,785 @@
+# Normalise all KO table (KO terms, coverage and description before pulling out any pathway of interest, 
+#initial normalisation was done on the subset of the data (Nitrogen metabolis pathway, this can be misleading))
+setwd("/Users/Vera/Documents/IMG_OUTPUTS_LP2017/ALL CSVs")
+KOtable<-read.csv("All.ecozones.KO.Avgfold.sep.csv")
+KEGGref<-read.csv("KO_Annotation_Table+Pathways.csv")
+KOtable_KEGG<-merge(KOtable,KEGGref, by="KO", all.x = T, all.y = T)
+KO.KEGGtable<-KOtable_KEGG
+
+#Split KO.KEGG table to two, dereplicate KO table to remove replicates of the same KO, merge both tables
+#derep first split by avearage as values are numeric 
+split1<-KO.KEGGtable[,c(1:102)] #numeric
+split2<-KO.KEGGtable[,c(1,103:109)] #factors
+split2$KOPathway<-NULL
+split2$PathwayFamily<-NULL
+split2$General<-NULL
+#aggregate split 1 by average (mean)
+KO_KEGG.agg1<-aggregate(.~KO,split1,FUN = mean)
+KO_KEGG.agg1$X<-NULL #remove unwanted column
+#split 2 columns are factors, makes aggreagtion almost imposible without converting factors to characters, use the package
+
+#install varhandle package to convert factor to character in split2
+install.packages("varhandle") 
+library(varhandle)
+alt <- unfactor(split2) 
+#aggregate charecter dataframe by KO
+KO_KEGG.agg2<-aggregate(.~KO,alt,paste, collapse="-")
+k<-KO_KEGG.agg2[-c(1,2),] #remove first two rows
+#merge split 1 and 2 
+merge.ko.kegg<-merge(k,KO_KEGG.agg1,by="KO",all.x = T,all.y = T)
+
+head(merge.ko.kegg)
+merge.ko.kegg$X<-NULL
+(sum(is.na(m.ko.kegg)))
+#write complete KO.KEGG.coverage table 
+write.csv(merge.ko.kegg,"/Users/Vera/Documents/IMG_OUTPUTS_LP2017/All CSVs/CompleteKO_KEGG_COVtable.csv", row.names = F, na="0")
+m.ko.kegg<-read.csv("CompleteKO_KEGG_COVtable.csv")
+#try not to break the table (didn't work, continue with other method) 
+KO.KEGGtable.UB<-KO.KEGGtable
+KO.KEGGtable.UB$General<-NULL
+XX<-unfactor(KO.KEGGtable.UB)
+XX1<-aggregate(.~KO,KO.KEGGtable.UB,FUN = mean)
+XX1<-aggregate(.~KONAame,KO.KEGGtable.UB,paste, collapse="-")
+
+#subset the data but before then, we normalise using percentage abundance x/sum(x)*100
+To_norm.m<-m.ko.kegg[,c(1,6:105)]
+To_norm.m[] <- lapply(To_norm.m[], function(x){
+  # Check if the column is numeric
+  if (is.numeric(x)){
+    return(x/sum(x))
+  } else{
+    return(x)
+  }
+})
+
+sum(m.ko.kegg$LAKE06_080.BS)
+head(m.ko.kegg)
+head(To_norm.m)
+other<-m.ko.kegg[,c(1:5)]
+#merge normalised table (to_norm plus other)
+Normalised<-merge(other,To_norm.m,by="KO",all.x = T,all.y = T)
+(sum(is.na(Normalised)))
+#write complete normalised KO table 
+write.csv(Normalised,"/Users/Vera/Documents/IMG_OUTPUTS_LP2017/All CSVs/Complete_normalised_KO_KEGG_COVtable.csv", row.names = F)
+
+#Re run analyis for subset N-metabolism
+#Subset the Nitrogen metabolism path KO00910 from normalised KO table
+#make a vector of rows instead, subset doesnt include KOs implicated in path other than 00910 
+
+rowsforNit<-Normalised[c("K00926", "K01672","K18245","K01674","K01948","K01725","K01673","K15877","K00262","K01455","K01501","K15371",
+              "K01915","K00264","K00265","K00266","K00284","K00261","K00260","K10535","K05601","K02567","K02568","K00367","K00370",
+              "K00371","K00374","K00372","K00360","K00459","K02586", "K02588","K02591", "K00366","K00362","K00363","K00368","K15864",
+              "K17877","K04561","K02305", "K00376","K10534","K03385","K15876","K02575","K15576","K15577","K15578","K15579","K10944",
+              "K10945","K10946"),]
+Pathko00910_norm_abundancedf<-rowsforNit
+write.csv(rowsforNit,"/Users/Vera/Documents/IMG_OUTPUTS_LP2017/All CSVs/Pathko00910_norm.csv", row.names = F)
+
+#Repeat analysis 
+#Heatmap for genes involved in N-metabolism, extract required cols
+
+View(rowsforNit)
+Nit.heatmap<-rowsforNit[,c(2,6:105)]
+row.names(Nit.heatmap)<-Nit.heatmap$KOName
+Nit.heatmap[1]<-NULL
+View(Nit.heatmap)
+#Plot heatmap
+#convert to matrix
+Nit.heatmap<-as.matrix(Nit.heatmap)
+is.numeric(Nit.heatmap)
+library(gplots)
+
+heatmap.2(Nit.heatmap, scale = "row", dendogram="column", Rowv=F, col = bluered(100), 
+          trace = "none", density.info = "none", main = "Genes involved in Nitrogen Metabolism, PATH:KO 00910")
+
+
+#no reordering heatmap with ecozones 
+heatmap.2(Nit.heatmap, scale = "row", dendogram="column", Rowv=F, Colv = F, col = bluered(100), 
+          trace = "none", density.info = "none", main = "Nitrogen Functional Genes Distribution in Eastern Canada")
+
+# Make helper function to map ecozones category to color, function is called easterncanada
+#read metadata 
+
+metadata<-read.csv("/Users/Vera/Documents/IMG_OUTPUTS_LP2017/All CSVs/Metadata_2017.csv", stringsAsFactors = F)
+write.csv(metadata,"/Users/Vera/Documents/IMG_OUTPUTS_LP2017/All CSVs/Metadata_2017.csv", na="0")
+metadata[1]<-NULL
+metadata$X<-NULL
+ecozone<-metadata[,c(1,11)]
+
+mapecozoneToColor<-function(annotations){
+  colorsVector = ifelse(annotations["Ecozone"]=="Atlantic_Highlands", 
+                        "red", ifelse(annotations["Ecozone"]=="Atlantic_Maritime", 
+                                      "green","blue"))
+                                      
+                                     
+  return(colorsVector)
+}
+
+ecozoneHeatmap<-function(Nit.heatmap, annotations) {    
+  sampleColors = mapecozoneToColor(annotations)
+  heatmap.2(Nit.heatmap, margins=c(5,8), ColSideColors=sampleColors,
+            key=TRUE, symkey=FALSE, density.info="none", trace="none",scale = "row", dendogram="column", 
+            Rowv=F,Colv=F, col = bluered(100),main="Functional genes involved in Nitrogen Metabolism, PATH:KO 00910")
+}
+
+ecozoneHeatmap(Nit.heatmap, ecozone)
+#Split the heatmap
+
+
+#heatmap with both dendograms
+
+heatmap.2(Nit.heatmap, scale = "row", dendogram=c("row,column"), Rowv=T, col = bluered(100),cexRow = 0.8,cexCol = 0.6, 
+          trace = "none", density.info = "none",main="PATTERNS IN NITROGEN METABOLISM, PATH:KO 00910")
+
+#heatmap with human impact class
+# Make helper function to map metadata category to color, function is called annotations.2
+mapimpactToColor<-function(annotations.2){
+  colorsVector = ifelse(annotations.2["Human.Impact.Class"]=="high", 
+                        "red", ifelse(annotations.2["Human.Impact.Class"]=="low", 
+                                      "green","blue"))
+  return(colorsVector)
+}
+
+HIHeatmap2<-function(Nit.heatmap, annotations.2) {    
+  sampleColors = mapimpactToColor(annotations.2)
+  heatmap.2(Nit.heatmap, margins=c(5,8), ColSideColors=sampleColors,
+            key=TRUE, symkey=FALSE, density.info="none", trace="none",scale = "row", dendogram="column", 
+            Rowv=F,col = bluered(100),main="Functional genes involved in Nitrogen Metabolism, PATH:KO 00910")
+}
+
+HIHeatmap2(Nit.heatmap, HI_class)
+
+#make HI heatmap without dendograms 
+HIHeatmap2<-function(Nit.heatmap, annotations.2) {    
+  sampleColors = mapimpactToColor(annotations.2)
+  heatmap.2(Nit.heatmap, margins=c(5,8), ColSideColors=sampleColors,
+            key=TRUE, symkey=FALSE, density.info="none", trace="none",scale = "row", dendogram="column", 
+            Rowv=F,Colv=F, col = bluered(100),main="Functional genes involved in Nitrogen Metabolism, PATH:KO 00910")
+}
+
+HIHeatmap2(Nit.heatmap, HI_class)
+
+
+#Boxplots 
+#read in normalised matrix of 26 genes implicated in 6 pathways of interest
+options(scipen = 999) #turns off scientific notation
+#options("scipen") to lesser number turns it on 
+Nit.Barplots<-read.csv("Gene_norm_boxplotmatrix_correct.csv")
+setwd("/Users/Vera/Documents/IMG_OUTPUTS_LP2017/All CSVs") 
+#Subset out BS ecozone 
+BoxplotBS<-Nit.Barplots[,c(2,6:28,30,34)]
+#use ggplot for boxplotfunction
+?options(scipen)
+library("gplots")
+install.packages("ggplot2")
+library(ggplot2)
+library(ggdendro)
+library("tidyr")
+library(tidyverse)
+install.packages("reshape")
+library(reshape2) #reshape data, assign ID variable and measured variable using melt function
+#reshape data by melting, only way ggplot2 function for boxplot will work 
+melt.BoxplotBS<-melt(BoxplotBS)
+#make ggplot object with melted dataframe and plot boxplot 
+Boreal<-ggplot(melt.BoxplotBS, aes(KOName,value)) #ggplot object a list
+Boreal+geom_boxplot(fill = "grey", colour = "#3366FF",outlier.colour = "red")+
+  labs(title="Variation in the abundance of functional genes involved in N-metabolism, Boreal Shield Ecozone",x="Gene encoding functions", y = "Relative Coverage")+
+  theme_classic()+coord_cartesian(ylim = c(0, 0.000001, 0.000010,0.000100))
+  
+  scale_y_log10()
+
+  rm(Boreal)
+?ggproto
+ 
+rm(list=ls())
+
+  
+
+#Import human impact class
+HI_class<-read.csv("Human_impact_metadata .csv")
+setwd("/Users/Vera/Documents/IMG_OUTPUTS_LP2017")
+#subset data 
+HI_class_BS<-HI_class[c(1:25),]
+
+#make colnames of HI_class same as melted data
+colnames(HI_class_BS)<-c("variable","Human.Impact.Class")
+#merge melted data and HI class
+merge_data<-merge(melt.BoxplotBS,HI_class_BS, by="variable",all.x = T,all.y = T)
+head(merge_data)
+#use merge data (melted data +human impact class) for boxplot
+ggplot(merge_data, aes(x=KOName,y=value,color=Human.Impact.Class))+
+  geom_boxplot()+
+  labs(title="Variation in the abundance of functional genes involved in N-metabolism, Boreal Shield Ecozone",x="Gene encoding functions", y = "Relative Coverage")+
+  theme_classic()+coord_cartesian(ylim = c(0, 0.000001, 0.000010,0.000100))
+
+#subset out AH ecozone 
+BoxplotAH<-Nit.Barplots[,c(2,29,31:33,35:55)]
+#reshape data by melting, only way ggplot2 function for boxplot will work 
+melt.BoxplotAH<-melt(BoxplotAH)
+#make ggplot object with melted dataframe and plot boxplot 
+Highlands<-ggplot(melt.BoxplotAH, aes(KOName,value)) #ggplot object a list
+Highlands+geom_boxplot(fill = "grey", colour = "#3366FF",outlier.colour = "red")+
+  labs(title="Variation in the abundance of functional genes involved in N-metabolism, Atlantic Highlands Ecozone",x="Gene encoding functions", y = "Relative Coverage")+
+  theme_classic()+ scale_y_log10()
+  
+  coord_cartesian(ylim = c(0, 0.000001, 0.000010,0.000100))
+
+#add human impact class to boxplot
+#subset data
+HI_class_AH<-HI_class[c(26:50),]
+
+#make colnames of HI_class same as melted data
+colnames(HI_class_AH)<-c("variable","Human.Impact.Class")
+#merge melted data and HI class
+merge_data.2<-merge(melt.BoxplotAH,HI_class_AH, by="variable",all.x = T,all.y = T)
+
+#use merge data (melted data +human impact class) for boxplot
+ggplot(merge_data.2, aes(x=KOName,y=value,color=Human.Impact.Class))+
+  geom_boxplot()+
+  labs(title="Variation in the abundance of functional genes involved in N-metabolism, Atlantic Highlands Ecozone",x="Gene encoding functions", y = "Relative Coverage")+
+  theme_classic()+coord_cartesian(ylim = c(0, 0.000001, 0.000010,0.000100))
+  
+  scale_y_log10()
+  
+  coord_cartesian(ylim = c(0, 0.000001, 0.000010,0.000100))
+
+
+#Subset out AM ecozone 
+BoxplotAM<-Nit.Barplots[,c(2,56:80)]
+#reshape data by melting, only way ggplot2 function for boxplot will work 
+melt.BoxplotAM<-melt(BoxplotAM)
+#make ggplot object with melted dataframe and plot boxplot 
+Maritime<-ggplot(melt.BoxplotAM, aes(KOName,value)) #ggplot object a list
+Maritime+geom_boxplot(fill = "grey", colour = "#3366FF",outlier.colour = "red")+
+  labs(title="Variation in the abundance of functional genes involved in N-metabolism, Atlantic Maritime Ecozone",x="Gene encoding functions", y = "Relative Abundance")+
+  theme_classic()+scale_y_log10()
+  
+  coord_cartesian(ylim = c(0, 0.000001, 0.000010,0.000100))
+#add human impact class to boxplot
+#subset data
+HI_class_AM<-HI_class[c(51:75),]
+#make colnames of HI_class same as melted data
+colnames(HI_class_AM)<-c("variable","Human.Impact.Class")
+#merge melted data and HI class
+merge_data.3<-merge(melt.BoxplotAM,HI_class_AM, by="variable",all.x = T,all.y = T)
+#use merge data (melted data +human impact class) for boxplot
+ggplot(merge_data.3, aes(x=KOName,y=value,color=Human.Impact.Class))+
+  geom_boxplot()+
+  labs(title="Variation in the abundance of functional genes involved in N-metabolism, Atlantic Maritime Ecozone",x="Gene encoding functions", y = "Relative Coverage")+
+  theme_classic()
+
+#subset MP ecozone
+BoxplotMP<-Nit.Barplots[,c(2,81:105)]
+#reshape data by melting, only way ggplot2 function for boxplot will work 
+melt.BoxplotMP<-melt(BoxplotMP)
+#make ggplot object with melted dataframe and plot boxplot 
+Mixedwood<-ggplot(melt.BoxplotMP, aes(KOName,value)) #ggplot object a list
+Mixedwood+geom_boxplot(fill = "grey", colour = "#3366FF",outlier.colour = "red")+
+  labs(title="Variation in the abundance of functional genes involved in N-metabolism, Mixedwood Plains Ecozone",x="Gene encoding functions", y = "Relative Coverage")+
+  theme_classic()+coord_cartesian(ylim = c(0, 0.000001, 0.000010,0.000100))
+
+#add human impact class to boxplot
+#subset data
+HI_class_MP<-HI_class[c(76:100),]
+#make colnames of HI_class same as melted data
+colnames(HI_class_MP)<-c("variable","Human.Impact.Class")
+#merge melted data and HI class
+merge_data.4<-merge(melt.BoxplotMP,HI_class_MP, by="variable",all.x = T,all.y = T)
+#use merge data (melted data +human impact class) for boxplot
+ggplot(merge_data.4, aes(x=KOName,y=value,color=Human.Impact.Class))+
+  geom_boxplot()+
+  labs(title="Variation in the abundance of functional genes involved in N-metabolism, Mixedwood Plain Ecozone",x="Gene encoding functions", y = "Relative Coverage")+
+  theme_classic()+coord_cartesian(ylim = c(0, 0.000001, 0.000010,0.000100))
+
+#all ecozones
+#reshape data by melting, only way ggplot2 function for boxplot will work 
+melt.all<-melt(Nit.Barplots)
+melt.all$KO<-NULL
+melt.all$KOPathwayName<-NULL
+melt.all$PathwayFamilyName<-NULL
+melt.all$GeneralName<-NULL
+#make ggplot object with melted dataframe and plot boxplot 
+allecozone<-ggplot(melt.all, aes(KOName,value)) #ggplot object a list
+allecozone+geom_boxplot(fill = "grey", colour = "#3366FF",outlier.colour = "red")+
+  labs(title="Variation in the abundance of functional genes involved in N-metabolism, Eastern Canada",x="Gene encoding functions", y = "Relative Coverage")+
+  theme_classic()+ scale_y_log10()
+  
+  coord_cartesian(ylim = c(0, 0.000001, 0.000010,0.000100))
+ 
+  
+
+#add human impact class to boxplot
+colnames(HI_class)<-c("variable","Human.Impact.Class")
+#merge melted data and HI class
+merge_data.5<-merge(melt.all,HI_class, by="variable",all.x = T,all.y = T)
+#use merge data (melted data +human impact class) for boxplot
+ggplot(merge_data.5, aes(x=KOName,y=value,color=Human.Impact.Class))+
+  geom_boxplot()+
+  labs(title="Variation in the abundance of functional genes involved in N-metabolism, Eastern Canada",x="Gene encoding functions", y = "Gene Abundance")+
+  theme_classic()+ scale_y_log10()
+  
+  coord_cartesian(ylim = c(0, 0.000001, 0.000010,0.000100))
+
+#make correlogram with functional genes and environmental variable matrix 
+#try just gene matrix
+#subset environmental variables matrix according to ecozones 
+metadataBS<-metadata[c(51:75),c(1,7:43)]
+metadataAH<-metadata[c(1:25),c(1,7:43)]
+metadataAM<-metadata[c(26:50),c(1,7:43)]
+metadataMP<-metadata[c(76:100),c(1,7:43)]
+install.packages("ggcorrplot")
+library(ggcorrplot)
+library(corrplot)
+library(RColorBrewer)
+install.packages("ggpubr")
+library(ggpubr)
+library(tidyverse)
+install.packages("Hmisc")
+library(Hmisc)
+library(dplyr)
+#CORRELATIONS
+#subset out BS for correlation tests 
+GeneCorrBS<-BoxplotBS
+row.names(GeneCorrBS)<-GeneCorrBS$KOName
+GeneCorrBS$KOName<-NULL
+#get the correlation matrix of gene abundances  
+cor(GeneCorrBS, method = "spearman")
+#round off values for correlation matrix,number of decimal places...
+BSCorrgram <-round(cor(GeneCorrBS, method = "spearman"),1)
+#Plot Correlogram with ggcorrplot
+  ggcorrplot(BSCorrgram, method = c("square"), type = c("full"), ggtheme = ggplot2::theme_minimal, 
+           title = "Correlation of N-Functional Genes within lakes in the Boreal Shield",
+           show.legend = TRUE, legend.title = "Corr", 
+           colors = c("blue", "white", "red"), outline.color = "gray",
+           hc.order = T, hc.method = "complete", lab = T,
+           lab_col = "black", lab_size = 4)
+
+#subset out AM for correlation test   
+  GeneCorrAM<-BoxplotAM
+  row.names(GeneCorrAM)<-GeneCorrAM$KOName
+  GeneCorrAM$KOName<-NULL
+  #get the correlation matrix of gene abundances  
+  cor(GeneCorrAM, method = "spearman")
+  #round off values for correlation matrix,number of decimal places...
+  AMCorrgram <-round(cor(GeneCorrAM, method = "spearman"),1)
+  #Plot Correlogram with ggcorrplot
+  ggcorrplot(AMCorrgram, method = c("square"), type = c("full"), ggtheme = ggplot2::theme_minimal, 
+             title = "Correlation of N-Functional Genes within lakes in the Atlantic Maritime",
+             show.legend = TRUE, legend.title = "Corr", 
+             colors = c("blue", "white", "red"), outline.color = "gray",
+             hc.order = T, hc.method = "complete", lab = T,
+             lab_col = "black", lab_size = 4) 
+#Subset out AH 
+  GeneCorrAH<-BoxplotAH
+  row.names(GeneCorrAH)<-GeneCorrAH$KOName
+  GeneCorrAH$KOName<-NULL
+  #get the correlation matrix of gene abundances  
+  cor(GeneCorrAH, method = "spearman")
+  #round off values for correlation matrix,number of decimal places...
+  AHCorrgram <-round(cor(GeneCorrAH, method = "spearman"),1)
+  #Plot Correlogram with ggcorrplot
+  ggcorrplot(AHCorrgram, method = c("square"), type = c("full"), ggtheme = ggplot2::theme_minimal, 
+             title = "Correlation of N-Functional Genes within lakes in the Atlantic Highlands",
+             show.legend = TRUE, legend.title = "Corr", 
+             colors = c("blue", "white", "red"), outline.color = "gray",
+             hc.order = T, hc.method = "complete", lab = T,
+             lab_col = "black", lab_size = 4) 
+ 
+#Subset out MP  
+  GeneCorrMP<-BoxplotMP
+  row.names(GeneCorrMP)<-GeneCorrMP$KOName
+  GeneCorrMP$KOName<-NULL
+  #get the correlation matrix of gene abundances  
+  cor(GeneCorrMP, method = "spearman")
+  #round off values for correlation matrix,number of decimal places...
+  MPCorrgram <-round(cor(GeneCorrMP, method = "spearman"),1)
+  #Plot Correlogram with ggcorrplot
+  ggcorrplot(MPCorrgram, method = c("square"), type = c("full"), ggtheme = ggplot2::theme_minimal, 
+             title = "Correlation of N-Functional Genes within lakes in the Mixedwood Plains",
+             show.legend = TRUE, legend.title = "Corr", 
+             colors = c("blue", "white", "red"), outline.color = "gray",
+             hc.order = T, hc.method = "complete", lab = T,
+             lab_col = "black", lab_size = 4) 
+  heatmap(x = MPCorrgram, symm = TRUE)#useheatmap to show correlation
+  is.numeric(MPCorrgram)
+#compare relationships between gene abundances in lakes
+#This could be tedious and the correlogram shows the same thing
+#What can be done is to do a spatial test by creating a matrix with all possible 
+#lake combinations to generate a cor matrix that can be tested with the distance variable 
+#to see how lakes differ over space. 
+
+ ggscatter(GeneCorrBS, x = "LAKE06_104.BS", y = "LAKE06_126.BS",
+          add = "reg.line", conf.int = TRUE, combine = TRUE,
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "N-Functional Genes in Boreal Lake.071", ylab = "N-functional Genes in Boreal lake.080",
+          title = "Relationship between Boreal Lakes")
+
+#Carry out Pearson correlation test bewteen both lakes 
+res <- cor.test(GeneCorrBS$LAKE06_071.BS, GeneCorrBS$LAKE06_080.BS, method = "pearson")
+res
+#Alternatively, use the corrplot package
+install.packages("corrplot")
+corrplot(BSCorrgram, method = "circle")#doesnt look great 
+##################
+?ggcorrplot
+cor(x, y = NULL, use = "everything",
+    method = c("pearson", "kendall", "spearman"))
+
+ 
+#carry out Pearson correlation test between environmental variables and functional gene abundances
+#BS
+#remove non numeric variable from metadata matrix
+metadataBS$Ecozone<-NULL
+#extract row of interest NasA gene 
+NasA<-as.data.frame(BoxplotBS[7,])
+NasA<-(as.data.frame(t(NasA)))
+NasA<-tibble::rownames_to_column(NasA, var = "Headername")
+colnames(NasA)<-c("Lake","NasA-Assimilatory Nitrate reduction")
+NasA<-NasA[-1,]
+
+#Add gene column to metadata 
+metadataBS$NasA<-as.character(NasA$`NasA-Assimilatory Nitrate reduction`)
+metadataBS$NasA<-as.numeric(metadataBS$NasA)
+
+#Start correlation testing with environmental variables 
+ggscatter(metadataBS, x ="X._agriculture", y = "NasA",
+          add = "reg.line", conf.int = TRUE, combine = TRUE,xlab = "Agriculture", ylab = "Functional Gene Relative Coverage",
+          cor.coef = TRUE, cor.method = "pearson",
+         title = "Relationship between N-Functional Gene (NasA) and Agriculture in the Boreal Shield")
+
+#extract row of interest NarB gene 
+NarB<-as.data.frame(BoxplotBS[3,])
+NarB<-(as.data.frame(t(NarB)))
+NarB<-tibble::rownames_to_column(NarB, var = "Headername")
+colnames(NarB)<-c("Lake","NarB-Assimilatory Nitrate reduction")
+NarB<-NarB[-1,]
+
+#Add gene column to metadata 
+metadataBS$NarB<-as.character(NarB$`NarB-Assimilatory Nitrate reduction`)
+metadataBS$NarB<-as.numeric(metadataBS$NarB)
+
+#Start correlation testing with environmental variables 
+ggscatter(metadataBS, x ="X._agriculture", y = "NarB",
+          add = "reg.line", conf.int = TRUE, combine = TRUE,
+          cor.coef = TRUE, cor.method = "pearson",
+          title = "Relationship between N-Functional Gene (NarB) and Agriculture in the Boreal Shield")
+
+#extract row of interest NirA gene 
+NirA<-as.data.frame(BoxplotBS[12,])
+NirA<-(as.data.frame(t(NirA)))
+NirA<-tibble::rownames_to_column(NirA, var = "Headername")
+colnames(NirA)<-c("Lake","NirA-Assimilatory Nitrate Reduction")
+NirA<-NirA[-1,]
+
+#Add gene column to metadata 
+metadataBS$NirA<-as.character(NirA$`NirA-Assimilatory Nitrate Reduction`)
+metadataBS$NirA<-as.numeric(metadataBS$NirA)
+
+#Start correlation testing with environmental variables 
+ggscatter(metadataBS, x ="X._agriculture", y = "NirA",
+          add = "reg.line", conf.int = TRUE, combine = TRUE,
+          cor.coef = TRUE, cor.method = "pearson",
+          title = "Relationship between N-Functional Gene (NirA) and Agriculture")
+
+
+#extract row of interest NirB gene 
+NirB<-as.data.frame(BoxplotBS[13,])
+NirB<-(as.data.frame(t(NirB)))
+NirB<-tibble::rownames_to_column(NirB, var = "Headername")
+colnames(NirB)<-c("Lake","NirB-Dissimilatory Nitrate Reduction")
+NirB<-NirB[-1,]
+
+#Add gene column to metadata 
+metadataBS$NirB<-as.character(NirB$`NirB-Dissimilatory Nitrate Reduction`)
+metadataBS$NirB<-as.numeric(metadataBS$NirB)
+
+#Start correlation testing with environmental variables 
+ggscatter(metadataBS, x ="X._agriculture", y = "NirB",
+          add = "reg.line", conf.int = TRUE, combine = TRUE,
+          cor.coef = TRUE, cor.method = "pearson",
+          title = "Relationship between N-Functional Gene (NirB) and Agriculture, BS")
+
+
+#extract row of interest NirD gene 
+NirD<-as.data.frame(BoxplotBS[14,])
+NirD<-(as.data.frame(t(NirD)))
+NirD<-tibble::rownames_to_column(NirD, var = "Headername")
+colnames(NirD)<-c("Lake","NirD-Dissimilatory Nitrate Reduction")
+NirD<-NirD[-1,]
+
+#Add gene column to metadata 
+metadataBS$NirD<-as.character(NirD$`NirD-Dissimilatory Nitrate Reduction`)
+metadataBS$NirD<-as.numeric(metadataBS$NirD)
+
+#Start correlation testing with environmental variables 
+ggscatter(metadataBS, x ="X._agriculture", y = "NirD",
+          add = "reg.line", conf.int = TRUE, combine = TRUE,
+          cor.coef = TRUE, cor.method = "pearson",
+          title = "Relationship between N-Functional Gene (NirD) and Agriculture, BS")
+
+#extract row of interest NirK gene 
+NirK<-as.data.frame(BoxplotBS[15,])
+NirK<-(as.data.frame(t(NirK)))
+NirK<-tibble::rownames_to_column(NirK, var = "Headername")
+colnames(NirK)<-c("Lake","NirK-Denitrification")
+NirK<-NirK[-1,]
+
+#Add gene column to metadata 
+metadataBS$NirK<-as.character(NirK$`NirK-Denitrification`)
+metadataBS$NirK<-as.numeric(metadataBS$NirK)
+
+#Start correlation testing with environmental variables 
+ggscatter(metadataBS, x ="X._agriculture", y = "NirK",
+          add = "reg.line", conf.int = TRUE, combine = TRUE,
+          cor.coef = TRUE, cor.method = "pearson",
+          title = "Relationship between N-Functional Gene (NirK) and Agriculture, BS")
+
+
+#Test correlation between dissimilatory Nitrogen genes (NIRBDK) and environmental 
+#conditions that affect these process, we have PH, Carbon, Dissolved Oxygen... 
+ggscatter(metadataBS, x ="DOC_cor", y = "NirK",
+          add = "reg.line", conf.int = TRUE, combine = TRUE,
+          cor.coef = TRUE, cor.method = "pearson",
+          title = "Relationship between N-Functional Gene (NirK) and DOC, BS")
+
+#Finish building enviromental variable and gene matrix, try to make a loop
+
+
+########## PCA analysis of KO abundance tables ########
+
+install.packages("mosaic")
+library("ggdendro")
+library("vegan")
+library("ade4")
+library("ggplot2")
+library("RColorBrewer")
+library("heatmap.plus")
+library("Rfast")
+library("mosaic")
+View(Nit.heatmap)
+
+KO.data<-Nit.heatmap
+View(Nit.heatmap)
+#transform data by hellingers 
+KO.data.hel<-decostand(t(KO.data),method="hellinger") 
+KO.data.rda<-rda(KO.data.hel)
+KO.data.eigper<-KO.data.rda$CA$eig*100/sum(KO.data.rda$CA$eig) # this gets me the list of eigen values in percentage of total variance explained
+setwd("/Users/Vera/Documents/IMG_OUTPUTS_LP2017/All CSVs/")
+Ecozone<-read.csv("Ecozones_all_lakes.csv") 
+## Building the graph
+KO.PCpos<-KO.data.rda$CA$u[,1:2]
+KO.PCpos2<-data.frame(cbind(KO.PCpos,rownames(KO.PCpos)))
+colnames(KO.PCpos2)[3]<-"Lake_ID"
+KO.PCgraph<-left_join(KO.PCpos2,Ecozone,by="Lake_ID") 
+
+KO.PCgraph[,1:2]<-KO.PCpos # for some reason, when I c bind earlier, the numerical values are transformed into factors, so I put them back in
+
+ecozone.colors<-colorRampPalette(brewer.pal(9,"RdYlGn"))(nlevels(KO.PCgraph$Ecozone))
+ecozone.colors<-c("blue","red","orange","purple")
+?colorRampPalette
+?brewer.pal
+?nlevels
+# Creating the plot based on PCA 
+ggplot(KO.PCgraph, 
+       aes(y=PC2,x=PC1,color=Ecozone))+
+  scale_color_manual(values=ecozone.colors)+
+  #geom_text(aes(label=Ecozone),hjust=0, vjust=0)+
+  xlim(-0.4,0.4)+
+  ylim(-0.4,0.4)+  
+  #scale_x_discrete(breaks = seq(-0.5, 0.5, by = 0.1))+
+  #scale_y_discrete(breaks = seq(-0.5, 0.5, by = 0.1))+
+  geom_point(size=3)+
+  theme_bw() + 
+  labs(y=paste("PC2(",as.character(signif(KO.data.eigper[2],digits=3)),"%)"),
+       x=paste("PC1(",as.character(signif(KO.data.eigper[1],digits=3)),"%)"),
+       col="Ecozone")+
+  geom_vline(xintercept = 0,linetype="dotted")+
+  geom_hline(yintercept = 0,linetype="dotted")+
+  theme(legend.text=element_text(face="bold",size=14), 
+        legend.title=element_text(face="bold",size=16),
+        plot.title=element_blank(),
+        axis.title.x=element_text(colour="black",face="bold",size=16), 
+        axis.title.y=element_text(colour="black",face="bold",size=16), 
+        axis.text.x=element_text(hjust = 1, colour="black",face="bold",size=14),
+        axis.text.y=element_text(colour="black",face="bold",size=14),
+        axis.line=element_line(colour="black",size=1,linetype="solid"),
+        panel.grid.major = element_blank(), # removes the grid on the graph
+        panel.grid.minor= element_blank(),
+        panel.border = element_blank(), # this line and the following to remove top and right axis
+        panel.background = element_blank(),
+        axis.ticks = element_line(colour="black",size=0.5,linetype="solid"))
+
+####################
+########## NMDS of KO abundance matrix ##########
+
+KO.data.NM<-Nit.heatmap
+
+
+KO.data.hel.NM<-decostand(t(KO.data),method="hellinger") # I use Hellinger transformation as I have come double zeros, even if not that much!!
+KO_NMDS<-metaMDS(KO.data.hel.NM,k=2,trymax=100)
+KO_NMDS$points
+
+## Building data structure for the graph
+
+KO.NMDSpos<-data.frame(KO_NMDS$points)
+KO.NMDSpos2<-cbind(KO.NMDSpos,rownames(KO.NMDSpos))
+colnames(KO.NMDSpos2)[3]<-"Lake_ID"
+KO.NMDSgraph<-left_join(KO.NMDSpos2,Ecozone,by="Lake_ID")
+
+library(ggplot2)
+# Plot the graph
+
+ggplot(KO.NMDSgraph,
+       aes(y=MDS2,x=MDS1,color=Ecozone))+
+  scale_color_manual(values=ecozone.colors)+
+  #geom_text(aes(label=Station),hjust=0, vjust=0)+
+  xlim(-0.4,0.4)+
+  ylim(-0.2,0.2)+  
+  #scale_x_discrete(breaks = seq(-0.5, 0.5, by = 0.1))+
+  #scale_y_discrete(breaks = seq(-0.5, 0.5, by = 0.1))+
+  geom_point(size=3)+
+  theme_bw() + 
+  labs(y="MDS2",
+       x="MDS1",
+       col="Ecozone")+
+  geom_vline(xintercept = 0,linetype="dotted")+
+  geom_hline(yintercept = 0,linetype="dotted")+
+  theme(legend.text=element_text(face="bold",size=14), 
+        legend.title=element_text(face="bold",size=16),
+        plot.title=element_blank(),
+        axis.title.x=element_text(colour="black",face="bold",size=16), 
+        axis.title.y=element_text(colour="black",face="bold",size=16), 
+        axis.text.x=element_text(hjust = 1, colour="black",face="bold",size=14),
+        axis.text.y=element_text(colour="black",face="bold",size=14),
+        axis.line=element_line(colour="black",size=1,linetype="solid"),
+        panel.grid.major = element_blank(), # removes the grid on the graph
+        panel.grid.minor= element_blank(),
+        panel.border = element_blank(), # this line and the following to remove top and right axis
+        panel.background = element_blank(),
+        axis.ticks = element_line(colour="black",size=0.5,linetype="solid"))
+  
+?envfit
+
+#Plot environmental variables on NMDS plots 
+library(grid)
+library(vegan)
+#make a stress plot for NMDS
+stressplot(KO_NMDS) # To gain the stress plot for stress values for your MDS
+#envfit
+
+  
+NMDSEnvfit<-envfit(KO.NMDSpos, env = Env.Data, perm = 999, na.rm = T)#standard envfit
+           
+
+#data for plotting 
+
+#data for envfit arrows
+env.scores.NM <- as.data.frame(scores(NMDSEnvfit, display = "vectors")) #extracts relevant scores from envifit
+env.scores.NM <- cbind(env.scores.NM, env.variables = rownames(env.scores.NM)) #and then gives them their names
+env.scores.sig<-env.scores.NM[c(2,4,5,8,9,11,14),]
+
+
+ggplot(data = KO.NMDSpos, aes(y = MDS2, x = MDS1))+ #sets up the plot. brackets around the entire thing to make it draw automatically
+    geom_segment(data = env.scores.sig,
+                 aes(x = 0, xend = MDS1, y = 0, yend = MDS2),
+                 arrow = arrow(length = unit(0.5, "cm")), colour = "black") + #arrows for envfit.  doubled the length for similarity to the plot() function. NB check ?envfit regarding arrow length if not familiar with lengths
+    geom_text(data = env.scores.sig, #labels the environmental variable arrows 
+              aes(x = MDS1, y = MDS2, label=env.variables),
+              size = 5,
+              hjust = -0.5)+
+    geom_point(data=KO.NMDSpos)+ #these are the species points, made lighter and a specific shape
+    scale_shape_manual(values = c(1,8,19,5))+ #sets the shape of the plot points instead of using whatever ggplot2 automatically provides
+    coord_cartesian(xlim = c(-1,1.5))+  ## NB this changes the visible area of the plot only (this is a good thing, apparently). Can also specify ylim. Here in case you want to set xaxis manually.
+    theme_bw()
+  
+?ggplot
+
+
+####################
+########## Correlation between PC1/PC2 and environmental variables #########
+
+# Note: you have to calculate the PCA first
+#remove all 0s in table, make into NA
+metadata.ordered[metadata.ordered == 0] <- NA
+head(metadata.ordered)
+#metadata.ordered<-read.csv("Env_variables_ordered.csv")
+Env.Data<-metadata.ordered[,c(1,7:10,12:17,25,26,39,40,43)]
+rownames(Env.Data)<-Env.Data$LAKE_ID
+Env.Data[,1]<-NULL
+head(Env.Data)
+# Get the PC vs sites matrix based on the PCA analysis in the piece of code above
+PCvsSites<-data.frame(KO.data.rda$CA$u)
+
+# Order the sites with the same order in the PC vs sites and environmental data matrices
+Env.Data.order<-Env.Data[match(rownames(PCvsSites),rownames(Env.Data)),]
+
+# create a vector with the names of environmental variables to use as y axis labels
+EnvVar.labels<-c("Lake Area (km2)",
+                 "Lake Depth (M)",
+                 "WaterShed Area (Km2)",
+                 "Human Impact Index",
+                 "Agriculture",
+                 "Forestry",
+                 "Mining",
+                 "Natural landscapes",
+                 "Pasture",
+                 "Urbanisation",
+                 "Dissolved Inorganic Carbon (DIC)",
+                 "Dissolved Organic Carbon (DOC)",
+                 "pH",
+                 "Salinity(PSU)",
+                 "TN")
+
+### Systematic plot of all the environmental variables vs PC1 or PC2
+
+par(mfrow=c(3,5), # par functiun is to plot many graphs simultaneously, in rowsand columns
+    mar=c(3, 4.5, 1, 1)) # defines the spaces around each graphs c(bottom,left,top,right)
+
+for (i in 1:ncol(Env.Data.order)){
+  plot(PCvsSites$PC1,Env.Data.order[,i],
+       ylab = EnvVar.labels[i],use="na.or.complete" )
+}
+
+
+## Calculate the correlation between PC1/PC2 and all environmental variables
+#Env.Data.order$DIC<-as.numeric(Env.Data.order$DIC)
+PCvsSites.15<-PCvsSites[,c(1,2)]
+
+PCvsEnvVar<-data.frame(matrix(0,nrow=ncol(Env.Data.order),ncol=ncol(PCvsSites.15)))
+rownames(PCvsEnvVar)<-colnames(Env.Data.order)
+colnames(PCvsEnvVar)<-colnames(PCvsSites.15)
+
+for (i in 1:ncol(Env.Data.order)){
+  for (j in 1:ncol(PCvsSites.15)){
+    PCvsEnvVar[i,j]<-cor(Env.Data.order[,i],PCvsSites.15[,j],method="pearson",use="na.or.complete")
+  }
+}
+
+
+
+## Plot the heatmap
+
+corColors<-colorRampPalette(colors = c("blue","white","red"))(30)
+
+
+heatmap.2(as.matrix(PCvsEnvVar), 
+          Colv=FALSE, 
+          Rowv=FALSE,
+          #hclustfun=clust.Gow,
+          dendrogram="none", # specify that we don't want a dendrogram
+          trace="none", 
+          density="none", 
+          col=corColors,
+          #key=FALSE,
+          cexRow=1,
+          cexCol=1, 
+          margins=c(10,30),
+          #keysize=0.2,
+          #RowSideColors=PathFam.colored,
+          #ColSideColors=PathFam.colored,
+          #scale="column",
+          key.xlab="Pearson Correlation Coefficient",
+          main="Correlation between PC1/PC2 and Environmental variables")
+####################
+###########################################
+
+
